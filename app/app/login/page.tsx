@@ -14,9 +14,6 @@ const Page = () => {
     const email = formData.get("email");
     const password = formData.get("password");
 
-    console.log("Email:", email);
-    console.log("Password:", password);
-
     // FormData ni obyektga aylantirish
     const ObjectFormData = Object.fromEntries(formData);
     const JsonData = JSON.stringify(ObjectFormData);
@@ -35,8 +32,7 @@ const Page = () => {
 
     if (response.ok) {
       const data = await response.json();
-      console.log(data);  // Konsolga chiqarish
-      auth.login(data?.username)
+      auth.login(data?.email)
     } else {
       console.error('Login failed');
     }

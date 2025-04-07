@@ -9,62 +9,82 @@ import {
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-// 🔐 Login redirect konfiguratsiyasi
+// 🔐 Auth configuration constants
 const LOGIN_REDIRECT_URL = "/";
 const LOGOUT_REDIRECT_URL = "/login";
 const LOGIN_REQUIRED_URL = "/login";
-const LOCAL_STORAGE_KEY = "is-logged-in";
-const LOCAL_USERNAME_KEY = "username";
+const LOCAL_STORAGE_KEY = "auth-data";
 
-// 🔑 AuthContext interfeysi
-interface AuthContextType {
-  isAuthenticated: boolean;
+// 🔑 User interface
+interface User {
+  id: string;
   username: string;
-  login: (username: string) => void;
-  logout: () => void;
-  loginRequiredRedirect: () => void;
+  email?: string;
+  role: 'student' | 'teacher' | 'admin' | 'staff';
+  avatar?: string;
+  isPremium?: boolean;
+  createdAt?: string;
 }
 
-// 💡 Context yaratamiz (default qiymat undefined)
+// 🔑 AuthContext interface
+interface AuthContextType {
+  isAuthenticated: boolean;
+  user: User | null;
+  login: (userData: User, redirectUrl?: string) => void;
+  logout: () => void;
+  loginRequiredRedirect: () => void;
+  updateUser: (updatedUser: Partial<User>) => void;
+}
+
+// 💡 Create context (default value undefined)
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// 🔧 Provider prop tipi
+// 🔧 Provider props type
 interface AuthProviderProps {
   children: ReactNode;
 }
 
-// ✅ AuthProvider komponenti
+// ✅ AuthProvider component
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [username, setUsername] = useState<string>("");
+  const [authState, setAuthState] = useState<{
+    isAuthenticated: boolean;
+    user: User | null;
+  }>({
+    isAuthenticated: false,
+    user: null,
+  });
 
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  // Initialize auth state from localStorage
   useEffect(() => {
-    const storedAuthStatus = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (storedAuthStatus) {
-      setIsAuthenticated(storedAuthStatus === "1");
-    }
-    const storedUsername = localStorage.getItem(LOCAL_USERNAME_KEY);
-    if (storedUsername) {
-      setUsername(storedUsername);
+    const storedAuthData = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (storedAuthData) {
+      try {
+        const parsedData = JSON.parse(storedAuthData);
+        setAuthState({
+          isAuthenticated: true,
+          user: parsedData.user,
+        });
+      } catch (error) {
+        console.error("Failed to parse auth data from localStorage", error);
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+      }
     }
   }, []);
 
-  const login = (username: string) => {
-    setIsAuthenticated(true);
-    localStorage.setItem(LOCAL_STORAGE_KEY, "1");
+  const login = (userData: User, redirectUrl?: string) => {
+    const authData = {
+      isAuthenticated: true,
+      user: userData,
+    };
+    
+    setAuthState(authData);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(authData));
 
-    if (username) {
-      localStorage.setItem(LOCAL_USERNAME_KEY, username);
-      setUsername(username);
-    } else {
-      localStorage.removeItem(LOCAL_USERNAME_KEY);
-    }
-
-    const nextUrl = searchParams.get("next");
+    const nextUrl = redirectUrl || searchParams.get("next");
     const invalidNextUrls = ["/login", "/logout"];
     const nextUrlValid =
       nextUrl && nextUrl.startsWith("/") && !invalidNextUrls.includes(nextUrl);
@@ -77,16 +97,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const logout = () => {
-    setIsAuthenticated(false);
-    localStorage.setItem(LOCAL_STORAGE_KEY, "0");
-    localStorage.removeItem(LOCAL_USERNAME_KEY);
+    setAuthState({
+      isAuthenticated: false,
+      user: null,
+    });
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
     router.replace(LOGOUT_REDIRECT_URL);
   };
 
   const loginRequiredRedirect = () => {
-    setIsAuthenticated(false);
-    localStorage.setItem(LOCAL_STORAGE_KEY, "0");
-    localStorage.removeItem(LOCAL_USERNAME_KEY);
+    setAuthState({
+      isAuthenticated: false,
+      user: null,
+    });
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
 
     let loginWithNextUrl = `${LOGIN_REQUIRED_URL}?next=${pathname}`;
     if (pathname === LOGIN_REQUIRED_URL) {
@@ -95,16 +119,45 @@ export function AuthProvider({ children }: AuthProviderProps) {
     router.replace(loginWithNextUrl);
   };
 
+  const updateUser = (updatedUser: Partial<User>) => {
+    if (!authState.user) return;
+    
+    const newUser = {
+      ...authState.user,
+      ...updatedUser,
+    };
+    
+    setAuthState({
+      isAuthenticated: true,
+      user: newUser,
+    });
+    
+    localStorage.setItem(
+      LOCAL_STORAGE_KEY,
+      JSON.stringify({
+        isAuthenticated: true,
+        user: newUser,
+      })
+    );
+  };
+
   return (
     <AuthContext.Provider
-      value={{ isAuthenticated, username, login, logout, loginRequiredRedirect }}
+      value={{
+        isAuthenticated: authState.isAuthenticated,
+        user: authState.user,
+        login,
+        logout,
+        loginRequiredRedirect,
+        updateUser,
+      }}
     >
       {children}
     </AuthContext.Provider>
   );
 }
 
-// 🪝 Hook: kontekstdan foydalanish
+// 🪝 Hook: useAuth
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (!context) {
