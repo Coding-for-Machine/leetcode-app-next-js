@@ -1,53 +1,66 @@
 "use client";
 
+import React from "react";
+import { useAuth } from "@/components/AuthProvider";
 
-import { useAuth } from '@/componets/AuthProvider';
-import React from 'react'
-const Login_url = '/api/login';  // To'g'ri URL
-
-const Page = () => {
-  const auth = useAuth()
-  async function LoginSubmit(event: React.FormEvent<HTMLFormElement>) {
+const LoginPage = () => {
+  const auth = useAuth();
+  const LoginSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    
+
     const formData = new FormData(event.currentTarget);
-    const email = formData.get("email");
-    const password = formData.get("password");
-
-    // FormData ni obyektga aylantirish
-    const ObjectFormData = Object.fromEntries(formData);
-    const JsonData = JSON.stringify(ObjectFormData);
-
-    // So'rov yuborish
-    const requestOption = {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"  // To'g'ri header
-      },
-      body: JsonData,
+    const data = {
+      email: formData.get("email"),
+      password: formData.get("password"),
     };
 
-    // API so'rovini yuborish
-    const response = await fetch(Login_url, requestOption);
+    const response = await fetch("/api/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
 
     if (response.ok) {
-      const data = await response.json();
-      auth.login(data?.email)
+      const resData = await response.json();
+
+      // Client localStorage'ga user'ni saqlaymiz
+      
+      auth.login(resData.user, '/profil'); // `user` obyekt kelyapti
     } else {
-      console.error('Login failed');
+      const error = await response.json();
+      alert(error.error || "Login failed");
     }
-  }
+  };
 
   return (
-    <>
-      <h1>Login Here</h1>
-      <form onSubmit={LoginSubmit}>
-        <input type="email" name="email" placeholder="Username" required />
-        <input type="password" name="password" placeholder="Password" required />
-        <button type="submit">Login</button>
+    <div className="flex flex-col items-center justify-center min-h-screen px-4">
+      <h1 className="text-2xl font-bold mb-6">Login</h1>
+      <form onSubmit={LoginSubmit} className="space-y-4 w-full max-w-sm">
+        <input
+          type="email"
+          name="email"
+          placeholder="Email"
+          required
+          className="w-full px-4 py-2 border rounded"
+        />
+        <input
+          type="password"
+          name="password"
+          placeholder="Password"
+          required
+          className="w-full px-4 py-2 border rounded"
+        />
+        <button
+          type="submit"
+          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+        >
+          Login
+        </button>
       </form>
-    </>
+    </div>
   );
-}
+};
 
-export default Page;
+export default LoginPage;

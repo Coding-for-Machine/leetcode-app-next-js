@@ -1,13 +1,10 @@
 // app/test/[slug]/page.tsx (Server Component)
-import React from 'react';
+"use client";
+
 import TestSlugClient from './test';
 
-interface PageProps {
-  params: { slug: string };
-}
 
-export default function TestSlugPage({ params }: PageProps) {
-  const slug = React.use(params).slug;
-  
+export default async function Page({ params }: {params: Promise<{slug: string}>}) {
+  const { slug } = await params
   return <TestSlugClient slug={slug} />;
 }

@@ -1,4 +1,4 @@
-import { getToken } from "@/lib/Auth";
+import { getToken } from "@/lib/auth";
 import { NextResponse, NextRequest } from "next/server";
 
 

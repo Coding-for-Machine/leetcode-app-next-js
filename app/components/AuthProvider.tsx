@@ -1,3 +1,4 @@
+// AuthProvider.tsx
 "use client";
 
 import {
@@ -7,26 +8,16 @@ import {
   useEffect,
   ReactNode,
 } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { encryptData, decryptData } from "@/lib/security"; // Importing encryption functions
+import User from "@/types/user";
 
 // 🔐 Auth configuration constants
 const LOGIN_REDIRECT_URL = "/";
 const LOGOUT_REDIRECT_URL = "/login";
 const LOGIN_REQUIRED_URL = "/login";
-const LOCAL_STORAGE_KEY = "auth-data";
+const LOCAL_STORAGE_KEY = "user";
 
-// 🔑 User interface
-interface User {
-  id: string;
-  username: string;
-  email?: string;
-  role: 'student' | 'teacher' | 'admin' | 'staff';
-  avatar?: string;
-  isPremium?: boolean;
-  createdAt?: string;
-}
-
-// 🔑 AuthContext interface
 interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
@@ -34,6 +25,9 @@ interface AuthContextType {
   logout: () => void;
   loginRequiredRedirect: () => void;
   updateUser: (updatedUser: Partial<User>) => void;
+  setUserData: (userData: User) => Promise<void>;
+  getUserData: () => Promise<User | null>;
+  deleteUserData: () => void;
 }
 
 // 💡 Create context (default value undefined)
@@ -44,7 +38,6 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-// ✅ AuthProvider component
 export function AuthProvider({ children }: AuthProviderProps) {
   const [authState, setAuthState] = useState<{
     isAuthenticated: boolean;
@@ -55,7 +48,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   });
 
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
 
   // Initialize auth state from localStorage
@@ -112,8 +104,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     });
     localStorage.removeItem(LOCAL_STORAGE_KEY);
 
-    let loginWithNextUrl = `${LOGIN_REQUIRED_URL}?next=${pathname}`;
-    if (pathname === LOGIN_REQUIRED_URL) {
+    let loginWithNextUrl = `${LOGIN_REQUIRED_URL}?next=${window.location.pathname}`;
+    if (window.location.pathname === LOGIN_REQUIRED_URL) {
       loginWithNextUrl = LOGIN_REQUIRED_URL;
     }
     router.replace(loginWithNextUrl);
@@ -121,17 +113,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const updateUser = (updatedUser: Partial<User>) => {
     if (!authState.user) return;
-    
+
     const newUser = {
       ...authState.user,
       ...updatedUser,
     };
-    
+
     setAuthState({
       isAuthenticated: true,
       user: newUser,
     });
-    
+
     localStorage.setItem(
       LOCAL_STORAGE_KEY,
       JSON.stringify({
@@ -139,6 +131,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
         user: newUser,
       })
     );
+  };
+
+  const setUserData = async (userData: User): Promise<void> => {
+    try {
+      const encrypted = await encryptData(userData);
+      localStorage.setItem(LOCAL_STORAGE_KEY, encrypted);
+      return
+    } catch (error) {
+      console.error("Failed to encrypt user data:", error);
+      throw new Error("User data encryption failed");
+    }
+  };
+
+  const getUserData = async (): Promise<User | null> => {
+    try {
+      const encrypted = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (!encrypted) return null;
+
+      const decrypted = await decryptData(encrypted);
+      return decrypted as User;
+    } catch (error) {
+      console.error("Failed to decrypt user data:", error);
+      return null;
+    }
+  };
+
+  const deleteUserData = (): void => {
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
   };
 
   return (
@@ -150,6 +170,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         logout,
         loginRequiredRedirect,
         updateUser,
+        setUserData,
+        getUserData,
+        deleteUserData,
       }}
     >
       {children}

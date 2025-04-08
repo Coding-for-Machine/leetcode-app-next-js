@@ -1,11 +1,13 @@
 "use client";
 
+import { useAuth } from '@/components/AuthProvider';
 import { redirect } from 'next/navigation';
 import React from 'react';
 
 const Logout_url = '/api/logout';  // To'g'ri URL
 
 const Page = () => {
+  const auth = useAuth()
   async function LogoutSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();  // Form yuborilishini oldini olish
     const requestOption = {
@@ -19,7 +21,7 @@ const Page = () => {
     const response = await fetch(Logout_url, requestOption);  // API ga so'rov yuborish
     
     if (response.ok) {
-      const data = await response.json();  // Javobni olish
+      auth.logout()
       redirect("/login")
     } else {
       console.error('Logout failed');

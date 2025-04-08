@@ -1,4 +1,6 @@
+// componenets/layot/NavLink.tsx
 import { NavLink, UserRole } from '@/types/navigation';
+
 
 const NavLinks: NavLink[] = [
     {
@@ -27,7 +29,7 @@ const NavLinks: NavLink[] = [
         id: 3,
         label: "Tanlovlar",
         icon: "trophy",
-        href: "/contests",
+        href: "/contest",
         authRequired: true,
         roles: ["student", "teacher", "admin", "staff"],
         description: "Qatnashish uchun tanlovlar",
@@ -38,7 +40,7 @@ const NavLinks: NavLink[] = [
         id: 4,
         label: "Testlar",
         icon: "file-alt",
-        href: "/tests",
+        href: "/test",
         authRequired: true,
         roles: ["student", "teacher", "admin", "staff"],
         description: "O'z bilimingizni sinab ko'ring",

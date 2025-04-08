@@ -1,0 +1,17 @@
+/* styles/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* An'anaviy CSS qo'shiladi */
+.my-custom-class {
+  color: red;
+  font-size: 1.2rem;
+  margin: 1rem 0;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}

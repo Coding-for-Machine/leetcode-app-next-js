@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/componets/AuthProvider";
+import { useAuth } from "@/components/AuthProvider";
 
 export default function ProfilePage() {
   const { isAuthenticated, login, logout } = useAuth();
