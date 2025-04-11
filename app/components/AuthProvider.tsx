@@ -1,4 +1,3 @@
-// AuthProvider.tsx
 "use client";
 
 import {
@@ -9,10 +8,9 @@ import {
   ReactNode,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { encryptData, decryptData } from "@/lib/security"; // Importing encryption functions
+import { encryptData, decryptData } from "@/lib/security";
 import User from "@/types/user";
 
-// 🔐 Auth configuration constants
 const LOGIN_REDIRECT_URL = "/";
 const LOGOUT_REDIRECT_URL = "/login";
 const LOGIN_REQUIRED_URL = "/login";
@@ -21,19 +19,17 @@ const LOCAL_STORAGE_KEY = "user";
 interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;
-  login: (userData: User, redirectUrl?: string) => void;
+  login: (userData: User, redirectUrl?: string) => Promise<void>;
   logout: () => void;
   loginRequiredRedirect: () => void;
-  updateUser: (updatedUser: Partial<User>) => void;
+  updateUser: (updatedUser: Partial<User>) => Promise<void>;
   setUserData: (userData: User) => Promise<void>;
   getUserData: () => Promise<User | null>;
   deleteUserData: () => void;
 }
 
-// 💡 Create context (default value undefined)
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// 🔧 Provider props type
 interface AuthProviderProps {
   children: ReactNode;
 }
@@ -50,115 +46,110 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Initialize auth state from localStorage
+  // ⏳ Init from encrypted localStorage
   useEffect(() => {
-    const storedAuthData = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (storedAuthData) {
+    const initializeAuth = async () => {
+      const storedEncrypted = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (!storedEncrypted) return;
+
       try {
-        const parsedData = JSON.parse(storedAuthData);
-        setAuthState({
-          isAuthenticated: true,
-          user: parsedData.user,
-        });
-      } catch (error) {
-        console.error("Failed to parse auth data from localStorage", error);
+        const decrypted = await decryptData(storedEncrypted);
+        if (decrypted && decrypted.user) {
+          setAuthState({
+            isAuthenticated: true,
+            user: decrypted.user,
+          });
+        }
+      } catch (err) {
+        console.error("❌ Decryption failed on init:", err);
         localStorage.removeItem(LOCAL_STORAGE_KEY);
       }
-    }
+    };
+
+    initializeAuth();
   }, []);
 
-  const login = (userData: User, redirectUrl?: string) => {
+  const login = async (userData: User, redirectUrl?: string) => {
     const authData = {
       isAuthenticated: true,
       user: userData,
     };
-    
-    setAuthState(authData);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(authData));
 
+    try {
+      const encrypted = await encryptData(authData);
+      localStorage.setItem(LOCAL_STORAGE_KEY, encrypted);
+      setAuthState(authData);
+    } catch (err) {
+      console.error("❌ Login encryption failed:", err);
+      return;
+    }
+    
     const nextUrl = redirectUrl || searchParams.get("next");
     const invalidNextUrls = ["/login", "/logout"];
     const nextUrlValid =
       nextUrl && nextUrl.startsWith("/") && !invalidNextUrls.includes(nextUrl);
 
-    if (nextUrlValid) {
-      router.replace(nextUrl);
-    } else {
-      router.replace(LOGIN_REDIRECT_URL);
-    }
+    router.replace(nextUrlValid ? nextUrl : LOGIN_REDIRECT_URL);
   };
 
   const logout = () => {
-    setAuthState({
-      isAuthenticated: false,
-      user: null,
-    });
+    setAuthState({ isAuthenticated: false, user: null });
     localStorage.removeItem(LOCAL_STORAGE_KEY);
     router.replace(LOGOUT_REDIRECT_URL);
   };
 
   const loginRequiredRedirect = () => {
-    setAuthState({
-      isAuthenticated: false,
-      user: null,
-    });
+    setAuthState({ isAuthenticated: false, user: null });
     localStorage.removeItem(LOCAL_STORAGE_KEY);
-
-    let loginWithNextUrl = `${LOGIN_REQUIRED_URL}?next=${window.location.pathname}`;
-    if (window.location.pathname === LOGIN_REQUIRED_URL) {
-      loginWithNextUrl = LOGIN_REQUIRED_URL;
-    }
-    router.replace(loginWithNextUrl);
+    const path = window.location.pathname;
+    const next = path === LOGIN_REQUIRED_URL ? LOGIN_REQUIRED_URL : `${LOGIN_REQUIRED_URL}?next=${path}`;
+    router.replace(next);
   };
 
-  const updateUser = (updatedUser: Partial<User>) => {
+  const updateUser = async (updatedUser: Partial<User>) => {
     if (!authState.user) return;
 
-    const newUser = {
-      ...authState.user,
-      ...updatedUser,
-    };
-
-    setAuthState({
+    const newUser = { ...authState.user, ...updatedUser };
+    const authData = {
       isAuthenticated: true,
       user: newUser,
-    });
+    };
 
-    localStorage.setItem(
-      LOCAL_STORAGE_KEY,
-      JSON.stringify({
-        isAuthenticated: true,
-        user: newUser,
-      })
-    );
+    try {
+      const encrypted = await encryptData(authData);
+      localStorage.setItem(LOCAL_STORAGE_KEY, encrypted);
+      setAuthState(authData);
+    } catch (err) {
+      console.error("❌ updateUser encryption failed:", err);
+    }
   };
 
   const setUserData = async (userData: User): Promise<void> => {
     try {
-      const encrypted = await encryptData(userData);
+      const encrypted = await encryptData({ isAuthenticated: true, user: userData });
       localStorage.setItem(LOCAL_STORAGE_KEY, encrypted);
-      return
-    } catch (error) {
-      console.error("Failed to encrypt user data:", error);
-      throw new Error("User data encryption failed");
+      setAuthState({ isAuthenticated: true, user: userData });
+    } catch (err) {
+      console.error("❌ setUserData error:", err);
     }
   };
 
   const getUserData = async (): Promise<User | null> => {
-    try {
-      const encrypted = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (!encrypted) return null;
+    const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!stored) return null;
 
-      const decrypted = await decryptData(encrypted);
-      return decrypted as User;
-    } catch (error) {
-      console.error("Failed to decrypt user data:", error);
+    try {
+      const decrypted = await decryptData(stored);
+      return decrypted.user || null;
+    } catch (err) {
+      console.error("❌ getUserData decrypt error:", err);
       return null;
     }
   };
 
-  const deleteUserData = (): void => {
+  const deleteUserData = () => {
     localStorage.removeItem(LOCAL_STORAGE_KEY);
+    setAuthState({ isAuthenticated: false, user: null });
   };
 
   return (
@@ -180,7 +171,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   );
 }
 
-// 🪝 Hook: useAuth
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (!context) {

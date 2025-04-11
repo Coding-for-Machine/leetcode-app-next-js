@@ -13,7 +13,7 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "types": ["three", "@react-three/fiber"],
+    "types": ["three", "@react-three/fiber", "framer-motion"],
     "plugins": [
       {
         "name": "next"

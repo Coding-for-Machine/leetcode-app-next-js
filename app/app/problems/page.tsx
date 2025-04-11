@@ -14,38 +14,67 @@ interface Problem {
   category: string[]
 }
 
+// Yangi: Xatolarni yaxshiroq boshqarish uchun fetcher funksiya
+const fetcher = async (url: string) => {
+  const res = await fetch(url)
+  if (!res.ok) {
+    const error = new Error('Failed to fetch data')
+    // @ts-ignore
+    error.status = res.status
+    throw error
+  }
+  const data = await res.json()
+  
+  // Ma'lumot massiv ekanligiga ishonch hosil qilamiz
+  if (!Array.isArray(data)) {
+    throw new Error('Expected array but got ' + typeof data)
+  }
+  
+  return data
+}
+
 const ProblemsPage = () => {
   const [activeTab, setActiveTab] = useState('all')
   const [difficultyFilter, setDifficultyFilter] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState('')
 
-  const { data: problems, error, isLoading } = useSWR<Problem[]>(
-    `${process.env.NEXT_PUBLIC_API_URL}/problems/`,
+  const { data: problems = [], error, isLoading } = useSWR<Problem[]>(
+    '/api/problems',
     fetcher
   )
 
-  // Filtirlash funksiyalari
-  const filteredProblems = problems?.filter(problem => {
-    // Difficulty bo'yicha filtrlash
-    const matchesDifficulty = difficultyFilter.length === 0 || 
-      difficultyFilter.includes(problem.difficulty)
-    
-    // Search query bo'yicha filtrlash
-    const matchesSearch = problem.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      problem.id.toString().includes(searchQuery)
-    
-    // Tab bo'yicha filtrlash
-    const matchesTab = activeTab === 'all' || 
-      (activeTab === 'solved' && problem.solved == true) ||
-      (activeTab === 'attempted' && problem.solved==false)
-    return matchesDifficulty && matchesSearch && matchesTab
-  })
+  // Filter funksiyasini xavfsiz qilamiz
+  const filteredProblems = Array.isArray(problems) 
+    ? problems.filter(problem => {
+        const matchesDifficulty = difficultyFilter.length === 0 || 
+          difficultyFilter.includes(problem.difficulty)
+        
+        const matchesSearch = problem.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          problem.id.toString().includes(searchQuery)
+        
+        const matchesTab = activeTab === 'all' || 
+          (activeTab === 'solved' && problem.solved) ||
+          (activeTab === 'attempted' && !problem.solved)
+        
+        return matchesDifficulty && matchesSearch && matchesTab
+      })
+    : []
 
-  if (error) return <div className="text-red-500">Error loading problems</div>
-  if (isLoading) return <div className="flex justify-center py-8">
-    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-  </div>
+  if (error) {
+    return (
+      <div className="text-red-500 p-4">
+        <h2>Error loading problems</h2>
+        <p>Status: {error.status || 'Unknown'}</p>
+        <p>Message: {error.message}</p>
+      </div>
+    )
+  }
 
+  if (isLoading) return (
+    <div className="flex justify-center py-8">
+      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+    </div>
+  )
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Sarlavha va qidiruv */}
@@ -246,8 +275,8 @@ const ProblemsPage = () => {
 
 export default ProblemsPage
 
-async function fetcher(url: string) {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error('Failed to fetch data')
-  return res.json()
-}
+// async function fetcher(url: string) {
+//   const res = await fetch(url)
+//   if (!res.ok) throw new Error('Failed to fetch data')
+//   return res.json()
+// }
