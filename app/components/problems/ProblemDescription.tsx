@@ -209,8 +209,8 @@ function ProblemDescription({ problem, currentProblem, _solved }: Props) {
 
         {/* Problem Description */}
         <div className="text-sm mt-4">
-          {problem.problemStatement ? (
-            <div dangerouslySetInnerHTML={{ __html: problem.problemStatement }} />
+          {problem.description ? (
+            <div dangerouslySetInnerHTML={{ __html: problem.description }} />
           ) : (
             <div className="text-[#8A8A8A]">No description available</div>
           )}

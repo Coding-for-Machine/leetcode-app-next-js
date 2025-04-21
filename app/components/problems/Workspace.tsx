@@ -66,8 +66,8 @@ function Workspace({ problem, currentProblem, id }: Props) {
         <div>
           <PlayGround
             problem={problem}
-            problemData={currentProblem}
-            id={id}
+            // problemData={currentProblem}
+            // id={id}
             setSolved={setSolved}
             setSettings={setSettings}
             settings={settings}
